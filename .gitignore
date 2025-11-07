@@ -39,3 +39,10 @@
 
 # debug information files
 *.dwo
+/.vs
+/SCC-AC Bypass/.vs
+/SCC-AC Bypass/SCC-AC Bypass/Debug
+/SCC-AC Bypass/SCC-AC Bypass/Release
+/SCC-AC Bypass/SCC-AC Bypass/x64/Debug/SCC-AC Bypass.tlog
+/SCC-AC Bypass/SCC-AC Bypass/x64/Debug
+/SCC-AC Bypass/sources

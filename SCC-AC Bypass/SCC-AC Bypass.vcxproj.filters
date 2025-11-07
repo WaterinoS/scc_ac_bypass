@@ -1,0 +1,19 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="sources">
+      <UniqueIdentifier>{b29d4d1a-2a79-4229-89b5-af70c840e4b8}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="sources\antycheat(1).pwn">
+      <Filter>sources</Filter>
+    </None>
+    <None Include="sources\antycheat.pwn">
+      <Filter>sources</Filter>
+    </None>
+    <None Include="sources\acAPI.pwn">
+      <Filter>sources</Filter>
+    </None>
+  </ItemGroup>
+</Project>
