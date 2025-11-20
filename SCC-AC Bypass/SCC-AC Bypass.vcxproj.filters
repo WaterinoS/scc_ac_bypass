@@ -16,4 +16,7 @@
       <Filter>sources</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
 </Project>
