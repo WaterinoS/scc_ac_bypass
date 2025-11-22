@@ -23,7 +23,7 @@ static const MemoryCheck memoryChecks[] = {
     { 0x5, 0x5E85F9, 200, "SampFuncs" },            // 0xF9855E
     { 0x5, 0x520191, 204, "[2] SampFuncs" },        // 0x910152
     { 0x5, 0x6EFBC7, 196, "[2] S0beit" },           // 0xC7FB6E
-    { 0x5, 0x53C8F4, 132, "Modified VorbisFile.dll" },// 0xF4C853
+    { 0x5, 0x53C8F4, 128, "Modified VorbisFile.dll" },// 0xF4C853
     { 0x5, 0x747EB4, 132, "UltraWH" },              // 0xB47E74
     { 0x5, 0x522C24, 192, "Silent Aim" },           // 0x242C52
     { 0x5, 0x743C60, 200, "Improved Deagle" },      // 0x603C74
@@ -111,6 +111,7 @@ bool OnOutgoingRPC(const te::sdk::RpcContext& ctx)
         (*static_cast<BitStream*>(ctx.bitStream)).Read(prev_response);
 
         UINT8 response = prev_response;
+        bool matched = false;
 
         for (const auto& check : memoryChecks)
         {
@@ -119,6 +120,7 @@ bool OnOutgoingRPC(const te::sdk::RpcContext& ctx)
             if (type == 0x48 || type == 0x2)
             {
                 response = check.expectedValue;
+                matched = true;
                 te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Matched %s: type=0x%X, address=0x%X -> responding %d",
                     check.name, type, address, response);
                 break;
@@ -140,21 +142,43 @@ bool OnOutgoingRPC(const te::sdk::RpcContext& ctx)
                     }
                 }
 
-                if (isSampCheck) break;
+                if (isSampCheck)
+                {
+                    matched = true;
+                    break;
+                }
 
                 if (address == check.baseAddr)
                 {
                     response = check.expectedValue;
+                    matched = true;
                     te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Matched %s: address=0x%X -> responding %d",
                         check.name, address, response);
                     break;
-				}
+                }
             }
             else if (type == 0x5)
             {
-                if (address >= (check.baseAddr - 0x10) && address <= check.baseAddr)
+                if (address == check.baseAddr)
                 {
                     response = check.expectedValue;
+                    matched = true;
+                    te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Matched check for %s: address=0x%X (exact match) -> responding %d",
+                        check.name, address, response);
+                    break;
+                }
+            }
+        }
+
+        // If type 0x5 and no exact match found, check with offset
+        if (type == 0x5 && !matched)
+        {
+            for (const auto& check : memoryChecks)
+            {
+                if (check.type == 0x5 && address >= (check.baseAddr - 0x10) && address < check.baseAddr)
+                {
+                    response = check.expectedValue;
+                    matched = true;
                     te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Matched %s: address=0x%X (base=0x%X, offset=0x%X) -> responding %d",
                         check.name, address, check.baseAddr, check.baseAddr - address, response);
                     break;
@@ -166,10 +190,6 @@ bool OnOutgoingRPC(const te::sdk::RpcContext& ctx)
         {
             te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Spoofing SCC Response: type=0x%X, address=0x%X, response=%d (was %d)", type, address, response, prev_response);
         }
-        /*else
-        {
-            te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Passing through SCC Response: type=0x%X, address=0x%X, response=%d", type, address, response);
-        }*/
 
         // Rewrite the response in the bitstream
         (*static_cast<BitStream*>(ctx.bitStream)).ResetWritePointer();
@@ -185,8 +205,6 @@ bool OnIncomingRPC(const te::sdk::RpcContext& ctx)
 {
     if (ctx.rpcId == 103)
     {
-        /*Parameters: UINT8 type, UINT32 address, UINT16 offset, UINT16 count*/
-
         UINT8 type = 0;
         UINT32 address = 0;
         UINT16 offset = 0;
@@ -200,7 +218,6 @@ bool OnIncomingRPC(const te::sdk::RpcContext& ctx)
         UINT8 response = 0;
         bool shouldRespond = false;
 
-        // Unified check s podporou type
         for (const auto& check : memoryChecks)
         {
             if (check.type != type) continue;
@@ -221,7 +238,7 @@ bool OnIncomingRPC(const te::sdk::RpcContext& ctx)
                     {
                         response = 192;
                         shouldRespond = true;
-                        te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming SAMP.dll check: address=0x%X (base=0x%X) -> responding 0",
+                        te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming SAMP.dll check: address=0x%X (base=0x%X) -> responding 192",
                             address, sampAddr);
                         break;
                     }
@@ -235,16 +252,31 @@ bool OnIncomingRPC(const te::sdk::RpcContext& ctx)
                     te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming %s: address=0x%X -> responding %d",
                         check.name, address, response);
                     break;
-				}
+                }
             }
             else if (type == 0x5)
             {
-                if (address >= (check.baseAddr - 0x10) && address <= check.baseAddr)
+                if (address == check.baseAddr)
                 {
                     response = check.expectedValue;
                     shouldRespond = true;
-                    te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming check for %s: address=0x%X (base=0x%X) -> responding %d",
-                        check.name, address, check.baseAddr, response);
+                    te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming check for %s: address=0x%X (exact match) -> responding %d",
+                        check.name, address, response);
+                    break;
+                }
+            }
+        }
+
+        if (type == 0x5 && !shouldRespond)
+        {
+            for (const auto& check : memoryChecks)
+            {
+                if (check.type == 0x5 && address >= (check.baseAddr - 0x10) && address < check.baseAddr)
+                {
+                    response = check.expectedValue;
+                    shouldRespond = true;
+                    te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming check for %s: address=0x%X (base=0x%X, offset=0x%X) -> responding %d",
+                        check.name, address, check.baseAddr, check.baseAddr - address, response);
                     break;
                 }
             }
@@ -261,11 +293,7 @@ bool OnIncomingRPC(const te::sdk::RpcContext& ctx)
             te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Sent response: type=0x%X, address=0x%X, response=%d", type, address, response);
 
             return false;
-        }/*
-        else
-        {
-            te::sdk::helper::logging::Log("[ SCC-AC-Bypass ] Incoming unknown check: type=0x%X, address=0x%X", type, address);
-        }*/
+        }
     }
 
     return true;
